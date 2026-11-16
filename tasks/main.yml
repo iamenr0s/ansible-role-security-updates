@@ -1,0 +1,39 @@
+---
+# audit: read-only. remediate: install and configure unattended updates, optionally apply now.
+# This role never reboots; it reports linux_hardening_updates_reboot_required instead.
+- name: Run security_updates
+  when: linux_hardening_updates_enabled | bool
+  block:
+    - name: Validate linux_hardening_mode
+      ansible.builtin.assert:
+        that: linux_hardening_mode in ['audit', 'remediate']
+        fail_msg: "linux_hardening_mode must be 'audit' or 'remediate', got '{{ linux_hardening_mode }}'"
+        quiet: true
+
+    - name: Audit (read-only)
+      ansible.builtin.include_tasks: audit.yml
+      when: linux_hardening_mode == 'audit'
+
+    - name: Remediate
+      when: linux_hardening_mode == 'remediate'
+      block:
+        - name: Require explicit remediation confirmation
+          ansible.builtin.assert:
+            that: linux_hardening_confirm_remediation | bool
+            fail_msg: >-
+              Remediation changes package sources and timers. Set linux_hardening_confirm_remediation: true
+              to proceed (run with linux_hardening_mode: audit to preview).
+            quiet: true
+
+        - name: Configure unattended updates
+          ansible.builtin.include_tasks: "configure_{{ __linux_hardening_updates_family }}.yml"
+
+        - name: Apply security updates now
+          ansible.builtin.include_tasks: apply_now.yml
+          when: linux_hardening_updates_apply_now | bool
+
+        - name: Verify effective configuration
+          ansible.builtin.include_tasks: audit.yml
+          vars:
+            __lh_upd_audit_fatal: true
+          when: linux_hardening_verify | bool

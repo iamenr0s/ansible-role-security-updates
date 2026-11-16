@@ -1,0 +1,8 @@
+{{ ansible_managed | comment(decoration='// ') }}
+// iamenr0s.linux_hardening.security_updates. Sorts after 50unattended-upgrades.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "{{ '1' if linux_hardening_updates_apply | bool else '0' }}";
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if linux_hardening_updates_automatic_reboot | bool else 'false' }}";
+{% if linux_hardening_updates_automatic_reboot | bool %}
+Unattended-Upgrade::Automatic-Reboot-Time "{{ linux_hardening_updates_reboot_time }}";
+{% endif %}

@@ -1,0 +1,23 @@
+---
+- name: Converge (audit only)
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Audit an unconfigured host
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: audit
+        linux_hardening_fail_on_error: false
+
+    - name: Findings are reported
+      ansible.builtin.assert:
+        that: linux_hardening_updates_findings | length > 0
+        quiet: true
+
+    - name: Nothing was written
+      ansible.builtin.stat:
+        path: /etc/apt/apt.conf.d/52linux-hardening-updates
+      register: __f
+      failed_when: __f.stat.exists

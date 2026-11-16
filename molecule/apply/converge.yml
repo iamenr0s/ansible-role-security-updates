@@ -1,0 +1,14 @@
+---
+# Runs a real security-only update once. Not idempotence-tested: a later run may find new updates.
+- name: Converge (apply now)
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Remediate and apply
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: remediate
+        linux_hardening_confirm_remediation: true
+        linux_hardening_updates_apply_now: true

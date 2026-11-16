@@ -1,0 +1,37 @@
+---
+
+dependencies: []
+
+galaxy_info:
+  role_name: security_updates
+  author: iamenr0s
+  description: Audit-first unattended security updates (dnf-automatic, unattended-upgrades) (iamenr0s.linux_hardening).
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: "EL"
+      versions:
+        - "8"
+        - "9"
+        - "10"
+    - name: "Fedora"
+      versions:
+        - "42"
+        - "43"
+        - "44"
+    - name: "Debian"
+      versions:
+        - "bookworm"
+        - "trixie"
+    - name: "Ubuntu"
+      versions:
+        - "jammy"
+        - "noble"
+  galaxy_tags:
+    - security
+    - updates
+    - patching
+    - dnf
+    - apt
+    - hardening
+    - compliance

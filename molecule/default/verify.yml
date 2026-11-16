@@ -1,0 +1,47 @@
+---
+- name: Verify
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Audit again, without failing
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: audit
+        linux_hardening_fail_on_error: false
+
+    - name: Nothing fixable is left and the reboot state is a boolean
+      ansible.builtin.assert:
+        that:
+          - linux_hardening_updates_findings | selectattr('fixable') | list | length == 0
+          - linux_hardening_updates_reboot_required | bool in [true, false]
+        quiet: true
+
+    - name: Read the settings back (RedHat family)
+      ansible.builtin.command: grep -E '^(upgrade_type|apply_updates)' /etc/dnf/automatic.conf
+      register: __v_rpm
+      changed_when: false
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Assert the dnf automatic settings
+      ansible.builtin.assert:
+        that:
+          - "'upgrade_type = security' in __v_rpm.stdout"
+          - "'apply_updates = yes' in __v_rpm.stdout"
+        quiet: true
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Read the settings back (Debian family)
+      ansible.builtin.command: apt-config dump
+      register: __v_deb
+      changed_when: false
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Assert the unattended-upgrades settings
+      ansible.builtin.assert:
+        that:
+          - "'APT::Periodic::Unattended-Upgrade \"1\";' in __v_deb.stdout"
+          - "'Unattended-Upgrade::Automatic-Reboot \"false\";' in __v_deb.stdout"
+        quiet: true
+      when: ansible_facts['os_family'] == 'Debian'

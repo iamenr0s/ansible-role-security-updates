@@ -1,0 +1,21 @@
+---
+# --- Shared collection variables ---
+linux_hardening_mode: audit                    # audit (read-only) | remediate
+linux_hardening_confirm_remediation: false     # must be true for any change
+linux_hardening_profile: cis_level1
+linux_hardening_backup: true
+linux_hardening_verify: true
+linux_hardening_fail_on_error: true
+
+# --- security_updates ---
+linux_hardening_updates_enabled: true
+# Unattended updates: dnf-automatic (RedHat family) or unattended-upgrades (Debian family).
+linux_hardening_updates_security_only: true    # RedHat: upgrade_type = security
+linux_hardening_updates_apply: true            # false = download/notify only
+# unattended-upgrades only (dnf-automatic cannot reboot). The role itself never reboots.
+linux_hardening_updates_automatic_reboot: false
+linux_hardening_updates_reboot_time: "03:00"
+# Run a security-only update once, now (remediate mode only).
+linux_hardening_updates_apply_now: false
+linux_hardening_updates_max_filesystem_usage: 90   # percent; checked on /, /var, /boot before apply_now
+linux_hardening_updates_dropin_name: 52linux-hardening-updates   # apt.conf.d file

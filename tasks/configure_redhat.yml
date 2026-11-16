@@ -1,0 +1,29 @@
+---
+- name: Install the automatic updates package
+  ansible.builtin.package:
+    name: "{{ __linux_hardening_updates_rpm_pkg }}"
+    state: present
+    update_cache: true
+
+- name: Configure dnf automatic
+  community.general.ini_file:
+    path: /etc/dnf/automatic.conf
+    section: commands
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: false
+    owner: root
+    group: root
+    mode: "0644"
+    backup: "{{ linux_hardening_backup | bool }}"
+  loop:
+    - {option: upgrade_type, value: "{{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}"}
+    - {option: apply_updates, value: "{{ 'yes' if linux_hardening_updates_apply | bool else 'no' }}"}
+  loop_control:
+    label: "{{ item.option }}"
+
+- name: Enable the automatic updates timer
+  ansible.builtin.systemd_service:
+    name: "{{ __linux_hardening_updates_rpm_timer }}"
+    enabled: true
+    state: started

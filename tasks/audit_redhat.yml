@@ -1,0 +1,37 @@
+---
+- name: Read dnf automatic configuration
+  ansible.builtin.slurp:
+    src: /etc/dnf/automatic.conf
+  register: __lh_upd_conf
+  failed_when: false
+
+- name: Read the timer state
+  ansible.builtin.systemd_service:
+    name: "{{ __linux_hardening_updates_rpm_timer }}"
+  register: __lh_upd_timer
+  failed_when: false
+  check_mode: true
+
+- name: Build findings
+  ansible.builtin.set_fact:
+    __lh_upd_findings: >-
+      {%- set out = [] -%}
+      {%- set c = (__lh_upd_conf.content | b64decode) if __lh_upd_conf.content is defined else '' -%}
+      {%- set ut = c | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)') | list + [''] -%}
+      {%- set au = c | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)') | list + [''] -%}
+      {%- set want_type = 'security' if linux_hardening_updates_security_only | bool else 'default' -%}
+      {%- set want_apply = linux_hardening_updates_apply | bool -%}
+      {%- set have_apply = (au | reject('equalto', '') | list | last | default('no')) | lower in ['yes', 'true', '1', 'on'] -%}
+      {%- if __linux_hardening_updates_rpm_pkg not in ansible_facts['packages'] -%}
+      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_pkg, 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
+      {%- endif -%}
+      {%- if (ut | reject('equalto', '') | list | last | default('default')) | lower != want_type -%}
+      {%- set _ = out.append({'key': 'dnf automatic upgrade_type', 'expected': want_type, 'actual': ut | reject('equalto', '') | list | last | default('default (unset)'), 'fixable': true}) -%}
+      {%- endif -%}
+      {%- if have_apply != want_apply -%}
+      {%- set _ = out.append({'key': 'dnf automatic apply_updates', 'expected': 'yes' if want_apply else 'no', 'actual': 'yes' if have_apply else 'no', 'fixable': true}) -%}
+      {%- endif -%}
+      {%- if __lh_upd_timer.status.UnitFileState | default('unknown') != 'enabled' or __lh_upd_timer.status.ActiveState | default('unknown') != 'active' -%}
+      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_timer, 'expected': 'enabled and active', 'actual': (__lh_upd_timer.status.UnitFileState | default('unknown')) ~ ' / ' ~ (__lh_upd_timer.status.ActiveState | default('unknown')), 'fixable': true}) -%}
+      {%- endif -%}
+      {{ out | to_json }}

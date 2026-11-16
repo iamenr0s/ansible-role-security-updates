@@ -1,0 +1,22 @@
+---
+- name: Check free space before updating
+  ansible.builtin.assert:
+    that: >-
+      ((100 - (item.size_available * 100 / item.size_total)) | round(2)) < linux_hardening_updates_max_filesystem_usage | float
+    fail_msg: "{{ item.mount }} is above {{ linux_hardening_updates_max_filesystem_usage }}% usage; not updating."
+    quiet: true
+  loop: "{{ ansible_facts['mounts'] | selectattr('mount', 'in', ['/', '/var', '/boot']) | selectattr('size_total', 'gt', 0) | list }}"
+  loop_control:
+    label: "{{ item.mount }}"
+
+- name: Apply security updates (RedHat family)
+  ansible.builtin.command: dnf -y upgrade --security
+  register: __lh_upd_dnf
+  changed_when: "'Nothing to do' not in __lh_upd_dnf.stdout"
+  when: __linux_hardening_updates_family == 'redhat'
+
+- name: Apply updates allowed by unattended-upgrades (Debian family)
+  ansible.builtin.command: unattended-upgrade -v
+  register: __lh_upd_apt
+  changed_when: "'No packages found' not in __lh_upd_apt.stdout + __lh_upd_apt.stderr"
+  when: __linux_hardening_updates_family == 'debian'
