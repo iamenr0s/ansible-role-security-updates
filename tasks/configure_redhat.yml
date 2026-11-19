@@ -5,13 +5,25 @@
     state: present
   register: __linux_hardening_updates_install
 
-- name: configure_redhat | Configure dnf automatic
-  community.general.ini_file:
+# Builtin lineinfile, not community.general.ini_file: current community.general needs Python 3.7+ on
+# the target, and EL 8's platform Python is 3.6. upgrade_type and apply_updates exist only in [commands].
+- name: configure_redhat | Ensure the commands section exists
+  ansible.builtin.lineinfile:
     path: /etc/dnf/automatic.conf
-    section: commands
-    option: "{{ item.option }}"
-    value: "{{ item.value }}"
-    no_extra_spaces: false
+    line: "[commands]"
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+    backup: "{{ linux_hardening_backup | bool }}"
+
+- name: configure_redhat | Configure dnf automatic
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: "^\\s*{{ item.option }}\\s*="
+    line: "{{ item.option }} = {{ item.value }}"
+    insertafter: '^\[commands\]'
+    create: true   # the file does not exist yet under --check on an unconfigured host
     owner: root
     group: root
     mode: "0644"
