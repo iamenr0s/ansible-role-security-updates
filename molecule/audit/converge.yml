@@ -15,8 +15,8 @@
       ansible.builtin.assert:
         that:
           - linux_hardening_updates_findings | length > 0
-          - linux_hardening_updates_findings | map('dict2items') | map('map', attribute='key') | map('sort')
-            | unique | list == [['actual', 'expected', 'fixable', 'key']]
+          - linux_hardening_updates_findings | map('list') | map('sort') | unique | list
+            == [['actual', 'expected', 'fixable', 'key']]
           - linux_hardening_updates_findings | selectattr('fixable') | list | length > 0
         quiet: true
 
