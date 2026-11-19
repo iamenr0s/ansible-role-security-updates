@@ -33,9 +33,10 @@
       {{ __linux_hardening_updates_deb_pkgs | reject('in', ansible_facts['packages']) | list }}
     __linux_hardening_updates_timer_states: >-
       {{ __linux_hardening_updates_timers.results | map(attribute='status.UnitFileState', default='unknown') | list }}
-    # The distro's allowed origins are reported, not changed.
+    # The distro's allowed origins are reported, not changed. Ubuntu uses Allowed-Origins, Debian Origins-Pattern.
     __linux_hardening_updates_open_origins: >-
-      {{ __linux_hardening_updates_cfg | regex_findall('(?m)^Unattended-Upgrade::Allowed-Origins:: "(.*)";')
+      {{ __linux_hardening_updates_cfg
+         | regex_findall('(?m)^Unattended-Upgrade::(?:Allowed-Origins|Origins-Pattern):: "(.*)";')
          | reject('search', '(?i)security') | list }}
     __linux_hardening_updates_checks:
       - ok: "{{ __linux_hardening_updates_missing | length == 0 }}"
