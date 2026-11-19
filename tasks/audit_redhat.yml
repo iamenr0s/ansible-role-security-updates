@@ -16,8 +16,7 @@
 - name: audit_redhat | Compare with desired state
   ansible.builtin.set_fact:
     linux_hardening_updates_findings: >-
-      {{ __linux_hardening_updates_checks | rejectattr('ok') | map(attribute='finding') | list
-         + __linux_hardening_updates_missing_pkgs }}
+      {{ __linux_hardening_updates_checks | rejectattr('ok') | map(attribute='finding') | list }}
   vars:
     __linux_hardening_updates_text: >-
       {{ __linux_hardening_updates_conf.content | default('') | b64decode }}
@@ -25,30 +24,32 @@
     __linux_hardening_updates_type: >-
       {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)')
          | last | default('default') | lower }}
-    __linux_hardening_updates_type_wanted: >-
-      {{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}
     __linux_hardening_updates_applies: >-
-      {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)')
-         | last | default('no') | lower in ['yes', 'true', '1', 'on'] }}
+      {{ 'yes' if __linux_hardening_updates_text | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)')
+         | last | default('no') | lower in ['yes', 'true', '1', 'on'] else 'no' }}
     __linux_hardening_updates_timer_state: >-
       {{ __linux_hardening_updates_timer.status.UnitFileState | default('unknown') }}
       / {{ __linux_hardening_updates_timer.status.ActiveState | default('unknown') }}
-    __linux_hardening_updates_missing_pkgs: >-
-      {{ __linux_hardening_updates_rpm_pkgs | reject('in', ansible_facts['packages'])
-         | map('community.general.dict_kv', 'key')
-         | map('combine', {'expected': 'installed', 'actual': 'missing', 'fixable': true}) | list }}
+    __linux_hardening_updates_missing: >-
+      {{ __linux_hardening_updates_rpm_pkgs | reject('in', ansible_facts['packages']) | list }}
     __linux_hardening_updates_checks:
-      - ok: "{{ __linux_hardening_updates_type == __linux_hardening_updates_type_wanted }}"
+      - ok: "{{ __linux_hardening_updates_missing | length == 0 }}"
+        finding:
+          key: packages
+          expected: "installed: {{ __linux_hardening_updates_rpm_pkgs | join(', ') }}"
+          actual: "missing: {{ __linux_hardening_updates_missing | join(', ') }}"
+          fixable: true
+      - ok: "{{ __linux_hardening_updates_type == __linux_hardening_updates_upgrade_type }}"
         finding:
           key: dnf automatic upgrade_type
-          expected: "{{ __linux_hardening_updates_type_wanted }}"
+          expected: "{{ __linux_hardening_updates_upgrade_type }}"
           actual: "{{ __linux_hardening_updates_type }}"
           fixable: true
-      - ok: "{{ __linux_hardening_updates_applies == linux_hardening_updates_apply | bool }}"
+      - ok: "{{ __linux_hardening_updates_applies == __linux_hardening_updates_apply_updates }}"
         finding:
           key: dnf automatic apply_updates
-          expected: "{{ 'yes' if linux_hardening_updates_apply | bool else 'no' }}"
-          actual: "{{ 'yes' if __linux_hardening_updates_applies else 'no' }}"
+          expected: "{{ __linux_hardening_updates_apply_updates }}"
+          actual: "{{ __linux_hardening_updates_applies }}"
           fixable: true
       - ok: "{{ __linux_hardening_updates_timer_state == 'enabled / active' }}"
         finding:

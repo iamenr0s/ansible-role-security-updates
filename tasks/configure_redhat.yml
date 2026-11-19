@@ -18,9 +18,9 @@
     backup: "{{ linux_hardening_backup | bool }}"
   loop:
     - option: upgrade_type
-      value: "{{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}"
+      value: "{{ __linux_hardening_updates_upgrade_type }}"
     - option: apply_updates
-      value: "{{ 'yes' if linux_hardening_updates_apply | bool else 'no' }}"
+      value: "{{ __linux_hardening_updates_apply_updates }}"
   loop_control:
     label: "{{ item.option }}"
 
