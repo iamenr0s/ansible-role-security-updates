@@ -16,11 +16,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7
         with:
           python-version: "3.14"
-      - run: pip install ansible ansible-lint yamllint pre-commit
+      - run: pip install pre-commit  # pre-commit builds a pinned env per hook
       # Same hooks as local pre-commit: yamllint --strict, ansible-lint, gitleaks.
       - run: pre-commit run --all-files --show-diff-on-failure
 
@@ -31,7 +31,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [almalinux9, debian13, ubuntu2404, fedora44, almalinux8, almalinux10, rockylinux9, debian12, ubuntu2204, fedora42, fedora43, rockylinux8, rockylinux10]
+        distro:
+          - almalinux9
+          - debian13
+          - ubuntu2404
+          - fedora44
+          - almalinux8
+          - almalinux10
+          - rockylinux9
+          - debian12
+          - ubuntu2204
+          - fedora42
+          - fedora43
+          - rockylinux8
+          - rockylinux10
         include:
           # EL8 managed-node Python 3.6 needs ansible-core 2.16
           - {distro: almalinux8, experimental: true, ansible_pin: "ansible<10"}
@@ -44,13 +57,13 @@ jobs:
           - {distro: rockylinux8, experimental: true, ansible_pin: "ansible<10"}
           - {distro: rockylinux10, experimental: true}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7
         with:
           python-version: "3.14"
       - run: pip install "${{ matrix.ansible_pin || 'ansible' }}" molecule "molecule-plugins[podman]"
       - name: Run all scenarios
-        run: molecule test --all --exclude vagrant --exclude vagrant-relabel  # vagrant scenarios need libvirt: run locally
+        run: molecule test --all
         env:
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"
@@ -63,9 +76,9 @@ jobs:
     needs: [lint, molecule]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
-      - uses: ansible-actions/ansible-galaxy-action@v1.2.0
+      - uses: ansible-actions/ansible-galaxy-action@388fe24563eb7889730a1c10587a8acd005bd42a  # v1.2.0
         with:
           galaxy_api_key: ${{ secrets.GALAXY_API_KEY }}
