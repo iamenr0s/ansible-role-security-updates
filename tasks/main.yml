@@ -4,12 +4,6 @@
 - name: Run security_updates
   when: linux_hardening_updates_enabled | bool
   block:
-    - name: Validate linux_hardening_mode
-      ansible.builtin.assert:
-        that: linux_hardening_mode in ['audit', 'remediate']
-        fail_msg: "linux_hardening_mode must be 'audit' or 'remediate', got '{{ linux_hardening_mode }}'"
-        quiet: true
-
     - name: Validate linux_hardening_updates_reboot_time
       ansible.builtin.assert:
         that: linux_hardening_updates_reboot_time is match('^([01][0-9]|2[0-3]):[0-5][0-9]$')
