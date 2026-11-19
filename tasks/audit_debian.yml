@@ -1,49 +1,55 @@
 ---
-- name: Read the effective apt configuration
+- name: audit_debian | Read the effective apt configuration
   ansible.builtin.command: apt-config dump
-  register: __lh_upd_apt_cfg
+  register: __linux_hardening_updates_apt_cfg
   changed_when: false
   check_mode: false
 
-- name: Read the timer states
+- name: audit_debian | Read the timer states
   ansible.builtin.systemd_service:
     name: "{{ item }}"
   loop: "{{ __linux_hardening_updates_deb_timers }}"
-  register: __lh_upd_timers
+  register: __linux_hardening_updates_timers
   failed_when: false
   check_mode: true
 
-- name: Build findings
+- name: audit_debian | Build findings
   ansible.builtin.set_fact:
-    __lh_upd_findings: >-
+    __linux_hardening_updates_found: >-
       {%- set out = [] -%}
-      {%- set c = __lh_upd_apt_cfg.stdout -%}
+      {%- set c = __linux_hardening_updates_apt_cfg.stdout -%}
       {%- set lists = c | regex_findall('(?m)^APT::Periodic::Update-Package-Lists "(\d+)"') | list + ['0'] -%}
       {%- set uu = c | regex_findall('(?m)^APT::Periodic::Unattended-Upgrade "(\d+)"') | list + ['0'] -%}
       {%- set rb = c | regex_findall('(?m)^Unattended-Upgrade::Automatic-Reboot "(\w+)"') | list + ['false'] -%}
       {%- set origins = c | regex_findall('(?m)^Unattended-Upgrade::Allowed-Origins:: "(.*)";') -%}
+      {%- set want_uu = '1' if linux_hardening_updates_apply | bool else '0' -%}
+      {%- set want_rb = 'true' if linux_hardening_updates_automatic_reboot | bool else 'false' -%}
       {%- if 'unattended-upgrades' not in ansible_facts['packages'] -%}
-      {%- set _ = out.append({'key': 'unattended-upgrades', 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'unattended-upgrades', 'expected': 'installed', 'actual': 'missing',
+                              'fixable': true}) -%}
       {%- endif -%}
       {%- if lists | first != '1' -%}
-      {%- set _ = out.append({'key': 'APT::Periodic::Update-Package-Lists', 'expected': '1', 'actual': lists | first, 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'APT::Periodic::Update-Package-Lists', 'expected': '1',
+                              'actual': lists | first, 'fixable': true}) -%}
       {%- endif -%}
-      {%- set want_uu = '1' if linux_hardening_updates_apply | bool else '0' -%}
       {%- if uu | first != want_uu -%}
-      {%- set _ = out.append({'key': 'APT::Periodic::Unattended-Upgrade', 'expected': want_uu, 'actual': uu | first, 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'APT::Periodic::Unattended-Upgrade', 'expected': want_uu,
+                              'actual': uu | first, 'fixable': true}) -%}
       {%- endif -%}
-      {%- set want_rb = 'true' if linux_hardening_updates_automatic_reboot | bool else 'false' -%}
       {%- if (rb | first) | lower != want_rb -%}
-      {%- set _ = out.append({'key': 'Unattended-Upgrade::Automatic-Reboot', 'expected': want_rb, 'actual': rb | first, 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'Unattended-Upgrade::Automatic-Reboot', 'expected': want_rb,
+                              'actual': rb | first, 'fixable': true}) -%}
       {%- endif -%}
-      {%- for t in __lh_upd_timers.results -%}
-      {%- if t.status.UnitFileState | default('unknown') != 'enabled' -%}
-      {%- set _ = out.append({'key': t.item, 'expected': 'enabled', 'actual': t.status.UnitFileState | default('unknown'), 'fixable': true}) -%}
+      {%- for t in __linux_hardening_updates_timers.results -%}
+      {%- set unit_state = t.status.UnitFileState | default('unknown') -%}
+      {%- if unit_state != 'enabled' -%}
+      {%- set _ = out.append({'key': t.item, 'expected': 'enabled', 'actual': unit_state, 'fixable': true}) -%}
       {%- endif -%}
       {%- endfor -%}
       {%- if linux_hardening_updates_security_only | bool -%}
       {%- for o in origins if 'security' not in o | lower -%}
-      {%- set _ = out.append({'key': 'allowed origin: ' ~ o, 'expected': 'security origins only', 'actual': 'non-security origin', 'fixable': false}) -%}
+      {%- set _ = out.append({'key': 'allowed origin: ' ~ o, 'expected': 'security origins only',
+                              'actual': 'non-security origin', 'fixable': false}) -%}
       {%- endfor -%}
       {%- endif -%}
       {{ out | to_json }}

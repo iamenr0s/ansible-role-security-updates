@@ -1,0 +1,4 @@
+---
+# dnf5-plugins provides `dnf needs-restarting`, used to detect a pending reboot.
+__linux_hardening_updates_rpm_pkgs: [dnf5-plugin-automatic, dnf5-plugins]
+__linux_hardening_updates_rpm_timer: dnf5-automatic.timer

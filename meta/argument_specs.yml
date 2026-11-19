@@ -3,17 +3,63 @@ argument_specs:
   main:
     short_description: Enable and audit unattended security updates; optionally apply them now. Never reboots.
     options:
-      linux_hardening_mode: {type: str, default: audit, choices: [audit, remediate], description: "audit is read-only."}
-      linux_hardening_confirm_remediation: {type: bool, default: false, description: "Must be true before remediate changes anything."}
-      linux_hardening_profile: {type: str, default: cis_level1, choices: [baseline, cis_level1, cis_level2], description: "Security profile."}
-      linux_hardening_backup: {type: bool, default: true, description: "Back up files edited in place."}
-      linux_hardening_verify: {type: bool, default: true, description: "Re-audit after remediation."}
-      linux_hardening_fail_on_error: {type: bool, default: true, description: "Fail the play when audit finds deviations."}
-      linux_hardening_updates_enabled: {type: bool, default: true, description: "Run the role."}
-      linux_hardening_updates_security_only: {type: bool, default: true, description: "Only security updates (dnf upgrade_type; on Debian family origins are reported, not changed)."}
-      linux_hardening_updates_apply: {type: bool, default: true, description: "Install updates automatically; false downloads/notifies only."}
-      linux_hardening_updates_automatic_reboot: {type: bool, default: false, description: "unattended-upgrades may reboot (Debian family only)."}
-      linux_hardening_updates_reboot_time: {type: str, default: "03:00", description: "Reboot time when automatic_reboot is true."}
-      linux_hardening_updates_apply_now: {type: bool, default: false, description: "Run a security-only update now (remediate mode)."}
-      linux_hardening_updates_max_filesystem_usage: {type: int, default: 90, description: "Refuse apply_now when /, /var or /boot is fuller than this percent."}
-      linux_hardening_updates_dropin_name: {type: str, default: 52linux-hardening-updates, description: "apt.conf.d file name."}
+      linux_hardening_mode:
+        type: str
+        default: audit
+        choices: [audit, remediate]
+        description: audit is read-only.
+      linux_hardening_confirm_remediation:
+        type: bool
+        default: false
+        description: Must be true before remediate changes anything.
+      linux_hardening_profile:
+        type: str
+        default: cis_level1
+        choices: [baseline, cis_level1, cis_level2]
+        description: Shared iamenr0s.linux_hardening profile. Accepted for consistency; this role does not use it.
+      linux_hardening_backup:
+        type: bool
+        default: true
+        description: Back up files edited in place.
+      linux_hardening_verify:
+        type: bool
+        default: true
+        description: Re-audit after remediation (skipped in check mode).
+      linux_hardening_fail_on_error:
+        type: bool
+        default: true
+        description: Fail the play when audit finds deviations.
+      linux_hardening_updates_enabled:
+        type: bool
+        default: true
+        description: Run the role.
+      linux_hardening_updates_security_only:
+        type: bool
+        default: true
+        description: >-
+          Only security updates (dnf upgrade_type). On the Debian family the allowed origins are reported,
+          not changed.
+      linux_hardening_updates_apply:
+        type: bool
+        default: true
+        description: Install updates automatically; false downloads and notifies only.
+      linux_hardening_updates_automatic_reboot:
+        type: bool
+        default: false
+        description: Let unattended-upgrades reboot (Debian family only).
+      linux_hardening_updates_reboot_time:
+        type: str
+        default: "03:00"
+        description: Reboot time, HH:MM (24h), used when automatic_reboot is true.
+      linux_hardening_updates_apply_now:
+        type: bool
+        default: false
+        description: Run a security-only update now (remediate mode, skipped in check mode).
+      linux_hardening_updates_max_filesystem_usage:
+        type: int
+        default: 90
+        description: Refuse apply_now when /, /var or /boot is fuller than this percent.
+      linux_hardening_updates_dropin_name:
+        type: str
+        default: 52linux-hardening-updates
+        description: apt.conf.d file name.

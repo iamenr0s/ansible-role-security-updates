@@ -11,13 +11,14 @@ Features
 - Security-only updates by default; `linux_hardening_updates_apply: false` only downloads and notifies.
 - Optional one-shot security update (`linux_hardening_updates_apply_now`), gated on free disk space.
 - Backs up the config file before changing it.
+- Fails fast on unsupported OS families and gathers the facts it needs when the play does not.
 - The only role in the `iamenr0s.linux_hardening` collection that manages automatic updates; for a full upgrade of all packages plus reboot handling, keep using `ansible-role-upgrade`.
 
 ## What it enforces
 | Family | Mechanism | Settings |
 |---|---|---|
-| RedHat (EL 8-10) | `dnf-automatic` + `dnf-automatic.timer` | `upgrade_type = security`, `apply_updates = yes` in `/etc/dnf/automatic.conf` |
-| Fedora | `dnf5-plugin-automatic` + `dnf5-automatic.timer` | same keys |
+| RedHat (EL 8-10) | `dnf-automatic` + `dnf-automatic.timer` (`dnf-plugins-core` for the reboot check) | `upgrade_type = security`, `apply_updates = yes` in `/etc/dnf/automatic.conf` |
+| Fedora | `dnf5-plugin-automatic` + `dnf5-automatic.timer` (`dnf5-plugins` for the reboot check) | same keys |
 | Debian, Ubuntu | `unattended-upgrades`, `apt-daily*.timer` | drop-in `/etc/apt/apt.conf.d/52linux-hardening-updates`: package lists daily, unattended upgrade on, `Automatic-Reboot "false"` |
 
 On the Debian family the allowed origins come from the distro's `50unattended-upgrades` and are **not overridden**; any allowed origin without "security" in its name is reported (not fixed) when `linux_hardening_updates_security_only` is true.
@@ -32,6 +33,8 @@ Variables use the collection-wide `linux_hardening_*` prefix (shared with siblin
 - `linux_hardening_updates_apply_now: true` (remediate only) runs `dnf upgrade --security` or `unattended-upgrade -v` once, after checking that `/`, `/var` and `/boot` are below `linux_hardening_updates_max_filesystem_usage` percent.
 - Once enabled, packages change without a run of your playbook, and services restart when their libraries are updated. Use `linux_hardening_updates_apply: false` to only download and notify.
 - The role never reboots; `linux_hardening_updates_automatic_reboot` (Debian family only) is `false` by default.
+- `apply_now` is not idempotent: a later run may find new updates. Everything else is (Molecule checks idempotence).
+- Check mode: `--check` previews the configuration change; `apply_now` and the re-audit are skipped.
 
 ## Example
 ```yaml
@@ -49,7 +52,7 @@ Variables use the collection-wide `linux_hardening_*` prefix (shared with siblin
 ```
 
 ## Verification
-Molecule `default` (remediate, idempotence, re-audit, settings read back), `audit`, `refuse`: AlmaLinux 9, Debian 13, Ubuntu 24.04, Fedora 44. `apply` (real security-only update): AlmaLinux 9, Debian 13. CI matrix: AlmaLinux 8–10, Rocky 8–10, Fedora 42–44, Debian 12–13, Ubuntu 22.04/24.04.
+Molecule `default` (remediate without gathered facts, idempotence, re-audit, settings read back), `check` (`--check` on an unconfigured host installs nothing), `audit`, `refuse`: AlmaLinux 9, Debian 13, Ubuntu 24.04, Fedora 44. `apply` (real security-only update): AlmaLinux 9, Debian 13. CI matrix: AlmaLinux 8–10, Rocky 8–10, Fedora 42–44, Debian 12–13, Ubuntu 22.04/24.04.
 
 ## Rollback
 RedHat: set `apply_updates = no` or disable the timer. Debian family: delete the drop-in and disable `apt-daily-upgrade.timer`. Installed updates are not rolled back.

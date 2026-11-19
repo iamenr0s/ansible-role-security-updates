@@ -1,0 +1,25 @@
+---
+- name: Converge (remediate under --check)
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Preview remediation on an unconfigured host
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: remediate
+        linux_hardening_confirm_remediation: true
+        linux_hardening_updates_apply_now: true
+
+    - name: Read the installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Nothing was installed
+      ansible.builtin.assert:
+        that:
+          - "'dnf-automatic' not in ansible_facts['packages']"
+          - "'dnf5-plugin-automatic' not in ansible_facts['packages']"
+          - "'unattended-upgrades' not in ansible_facts['packages']"
+        quiet: true

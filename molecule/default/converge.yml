@@ -1,8 +1,9 @@
 ---
+# gather_facts: false exercises the role's own fact gathering.
 - name: Converge (remediate)
   hosts: all
   become: false
-  gather_facts: true
+  gather_facts: false
   tasks:
     - name: Remediate
       ansible.builtin.include_role:

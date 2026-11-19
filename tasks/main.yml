@@ -10,6 +10,33 @@
         fail_msg: "linux_hardening_mode must be 'audit' or 'remediate', got '{{ linux_hardening_mode }}'"
         quiet: true
 
+    - name: Validate linux_hardening_updates_reboot_time
+      ansible.builtin.assert:
+        that: linux_hardening_updates_reboot_time is match('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        fail_msg: "linux_hardening_updates_reboot_time must be HH:MM, got '{{ linux_hardening_updates_reboot_time }}'"
+        quiet: true
+      when: linux_hardening_updates_automatic_reboot | bool
+
+    - name: Gather the facts this role needs
+      ansible.builtin.setup:
+        gather_subset: [min, mounts]
+      when: ansible_facts['os_family'] is not defined or ansible_facts['mounts'] is not defined
+
+    - name: Check the platform is supported
+      ansible.builtin.assert:
+        that: ansible_facts['os_family'] in ['RedHat', 'Debian']
+        fail_msg: "security_updates supports the RedHat and Debian families, not {{ ansible_facts['os_family'] }}."
+        quiet: true
+
+    - name: Set platform specific variables
+      ansible.builtin.include_vars: "{{ __linux_hardening_updates_vars_file }}"
+      loop:
+        - "{{ ansible_facts['os_family'] }}.yml"
+        - "{{ ansible_facts['distribution'] }}.yml"
+      vars:
+        __linux_hardening_updates_vars_file: "{{ role_path }}/vars/{{ item }}"
+      when: __linux_hardening_updates_vars_file is file
+
     - name: Audit (read-only)
       ansible.builtin.include_tasks: audit.yml
       when: linux_hardening_mode == 'audit'
@@ -28,12 +55,13 @@
         - name: Configure unattended updates
           ansible.builtin.include_tasks: "configure_{{ __linux_hardening_updates_family }}.yml"
 
+        # Check mode only previews the configuration: no update run, no re-audit of a simulated state.
         - name: Apply security updates now
           ansible.builtin.include_tasks: apply_now.yml
-          when: linux_hardening_updates_apply_now | bool
+          when: linux_hardening_updates_apply_now | bool and not ansible_check_mode
 
         - name: Verify effective configuration
           ansible.builtin.include_tasks: audit.yml
           vars:
-            __lh_upd_audit_fatal: true
-          when: linux_hardening_verify | bool
+            __linux_hardening_updates_audit_fatal: true
+          when: linux_hardening_verify | bool and not ansible_check_mode

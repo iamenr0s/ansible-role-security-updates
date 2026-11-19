@@ -1,51 +1,55 @@
 ---
 # Read-only. Findings carry fixable: true when remediation can fix them.
-- name: Gather package facts
+- name: audit | Gather package facts
   ansible.builtin.package_facts:
     manager: auto
 
-- name: Check whether a reboot is pending
+- name: audit | Check whether a reboot is pending (Debian family)
   ansible.builtin.stat:
     path: /var/run/reboot-required
-  register: __lh_upd_rr_stat
+  register: __linux_hardening_updates_rr_stat
   when: __linux_hardening_updates_family == 'debian'
 
-- name: Check whether a reboot is pending (RedHat family)
+# rc 1 means a reboot is needed. A missing needs-restarting plugin is reported as a finding by audit_redhat.
+- name: audit | Check whether a reboot is pending (RedHat family)
   ansible.builtin.command: dnf needs-restarting -r
-  register: __lh_upd_rr_cmd
+  register: __linux_hardening_updates_rr_cmd
   changed_when: false
   failed_when: false
   check_mode: false
   when: __linux_hardening_updates_family == 'redhat'
 
-- name: Record whether a reboot is pending
+- name: audit | Record whether a reboot is pending
   ansible.builtin.set_fact:
     linux_hardening_updates_reboot_required: >-
-      {{ __lh_upd_rr_stat.stat.exists
+      {{ __linux_hardening_updates_rr_stat.stat.exists
          if __linux_hardening_updates_family == 'debian'
-         else __lh_upd_rr_cmd.rc == 1 }}
+         else __linux_hardening_updates_rr_cmd.rc == 1 }}
 
-- name: Compare with desired state
+- name: audit | Compare with desired state
   ansible.builtin.include_tasks: "audit_{{ __linux_hardening_updates_family }}.yml"
 
-- name: Record findings
+- name: audit | Record findings
   ansible.builtin.set_fact:
-    linux_hardening_updates_findings: "{{ __lh_upd_findings | from_json if __lh_upd_findings is string else __lh_upd_findings }}"
+    linux_hardening_updates_findings: >-
+      {{ __linux_hardening_updates_found | from_json
+         if __linux_hardening_updates_found is string else __linux_hardening_updates_found }}
 
-- name: Report security_updates result
+- name: audit | Report security_updates result
   ansible.builtin.debug:
     msg: >-
       {{ 'COMPLIANT' if linux_hardening_updates_findings | length == 0 else linux_hardening_updates_findings }}
       (reboot required: {{ linux_hardening_updates_reboot_required }})
 
 # After remediation only fixable findings fail the run; the others need a human.
-- name: Fail on findings
+- name: audit | Fail on findings
   ansible.builtin.fail:
-    msg: "security_updates found {{ __lh_upd_blocking | length }} deviation(s)."
+    msg: "security_updates found {{ __linux_hardening_updates_blocking | length }} deviation(s)."
   vars:
-    __lh_upd_blocking: >-
-      {{ linux_hardening_updates_findings
-         if (linux_hardening_fail_on_error | bool) and not (__lh_upd_audit_fatal | default(false))
-         else linux_hardening_updates_findings | selectattr('fixable') | list
-         if (__lh_upd_audit_fatal | default(false)) else [] }}
-  when: __lh_upd_blocking | length > 0
+    __linux_hardening_updates_fatal: "{{ __linux_hardening_updates_audit_fatal | default(false) }}"
+    __linux_hardening_updates_blocking: >-
+      {{ linux_hardening_updates_findings | selectattr('fixable') | list
+         if __linux_hardening_updates_fatal | bool
+         else linux_hardening_updates_findings if linux_hardening_fail_on_error | bool
+         else [] }}
+  when: __linux_hardening_updates_blocking | length > 0

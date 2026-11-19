@@ -1,0 +1,12 @@
+---
+# Containers ship without apt lists; --check cannot refresh them, a real host already has them.
+- name: Prepare
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Refresh the apt cache
+      ansible.builtin.apt:
+        update_cache: true
+      check_mode: false   # the scenario passes --check to every playbook
+      when: ansible_facts['os_family'] == 'Debian'

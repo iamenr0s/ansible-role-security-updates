@@ -6,3 +6,5 @@ exclude_paths:
 skip_list:
   # Collection convention is linux_hardening_<domain>_*, not <role_name>_* (docs/architecture.md).
   - var-naming[no-role-prefix]
+enable_list:
+  - name[prefix]   # tasks in sub-task files start with "<file> | "

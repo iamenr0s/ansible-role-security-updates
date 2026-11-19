@@ -1,37 +1,46 @@
 ---
-- name: Read dnf automatic configuration
+- name: audit_redhat | Read dnf automatic configuration
   ansible.builtin.slurp:
     src: /etc/dnf/automatic.conf
-  register: __lh_upd_conf
+  register: __linux_hardening_updates_conf
   failed_when: false
 
-- name: Read the timer state
+- name: audit_redhat | Read the timer state
   ansible.builtin.systemd_service:
     name: "{{ __linux_hardening_updates_rpm_timer }}"
-  register: __lh_upd_timer
+  register: __linux_hardening_updates_timer
   failed_when: false
   check_mode: true
 
-- name: Build findings
+# The last non-empty assignment of each option wins, as in dnf.
+- name: audit_redhat | Build findings
   ansible.builtin.set_fact:
-    __lh_upd_findings: >-
+    __linux_hardening_updates_found: >-
       {%- set out = [] -%}
-      {%- set c = (__lh_upd_conf.content | b64decode) if __lh_upd_conf.content is defined else '' -%}
-      {%- set ut = c | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)') | list + [''] -%}
-      {%- set au = c | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)') | list + [''] -%}
+      {%- set conf = __linux_hardening_updates_conf -%}
+      {%- set c = (conf.content | b64decode) if conf.content is defined else '' -%}
+      {%- set ut = c | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)') | reject('equalto', '') | list -%}
+      {%- set au = c | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)') | reject('equalto', '') | list -%}
+      {%- set have_type = ut | last | default('default') -%}
       {%- set want_type = 'security' if linux_hardening_updates_security_only | bool else 'default' -%}
+      {%- set have_apply = (au | last | default('no')) | lower in ['yes', 'true', '1', 'on'] -%}
       {%- set want_apply = linux_hardening_updates_apply | bool -%}
-      {%- set have_apply = (au | reject('equalto', '') | list | last | default('no')) | lower in ['yes', 'true', '1', 'on'] -%}
-      {%- if __linux_hardening_updates_rpm_pkg not in ansible_facts['packages'] -%}
-      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_pkg, 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if (ut | reject('equalto', '') | list | last | default('default')) | lower != want_type -%}
-      {%- set _ = out.append({'key': 'dnf automatic upgrade_type', 'expected': want_type, 'actual': ut | reject('equalto', '') | list | last | default('default (unset)'), 'fixable': true}) -%}
+      {%- set status = __linux_hardening_updates_timer.status | default({}) -%}
+      {%- set unit_state = status.UnitFileState | default('unknown') -%}
+      {%- set active_state = status.ActiveState | default('unknown') -%}
+      {%- for pkg in __linux_hardening_updates_rpm_pkgs if pkg not in ansible_facts['packages'] -%}
+      {%- set _ = out.append({'key': pkg, 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
+      {%- endfor -%}
+      {%- if have_type | lower != want_type -%}
+      {%- set _ = out.append({'key': 'dnf automatic upgrade_type', 'expected': want_type,
+                              'actual': ut | last | default('default (unset)'), 'fixable': true}) -%}
       {%- endif -%}
       {%- if have_apply != want_apply -%}
-      {%- set _ = out.append({'key': 'dnf automatic apply_updates', 'expected': 'yes' if want_apply else 'no', 'actual': 'yes' if have_apply else 'no', 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'dnf automatic apply_updates', 'expected': 'yes' if want_apply else 'no',
+                              'actual': 'yes' if have_apply else 'no', 'fixable': true}) -%}
       {%- endif -%}
-      {%- if __lh_upd_timer.status.UnitFileState | default('unknown') != 'enabled' or __lh_upd_timer.status.ActiveState | default('unknown') != 'active' -%}
-      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_timer, 'expected': 'enabled and active', 'actual': (__lh_upd_timer.status.UnitFileState | default('unknown')) ~ ' / ' ~ (__lh_upd_timer.status.ActiveState | default('unknown')), 'fixable': true}) -%}
+      {%- if unit_state != 'enabled' or active_state != 'active' -%}
+      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_timer, 'expected': 'enabled and active',
+                              'actual': unit_state ~ ' / ' ~ active_state, 'fixable': true}) -%}
       {%- endif -%}
       {{ out | to_json }}
