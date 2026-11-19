@@ -2,9 +2,7 @@
 # Not idempotent by nature: a later run may find new updates.
 - name: apply_now | Check free space before updating
   ansible.builtin.assert:
-    that: >-
-      ((100 - (item.size_available * 100 / item.size_total)) | round(2))
-      < linux_hardening_updates_max_filesystem_usage | float
+    that: (1 - item.size_available / item.size_total) * 100 < linux_hardening_updates_max_filesystem_usage
     fail_msg: "{{ item.mount }} is above {{ linux_hardening_updates_max_filesystem_usage }}% usage; not updating."
     quiet: true
   loop: >-
@@ -15,9 +13,11 @@
     label: "{{ item.mount }}"
 
 - name: apply_now | Apply security updates (RedHat family)
-  ansible.builtin.command: dnf -y upgrade --security
-  register: __linux_hardening_updates_dnf
-  changed_when: "'Nothing to do' not in __linux_hardening_updates_dnf.stdout"
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    security: true
+    update_only: true   # only update what is installed
   when: __linux_hardening_updates_family == 'redhat'
 
 - name: apply_now | Apply updates allowed by unattended-upgrades (Debian family)

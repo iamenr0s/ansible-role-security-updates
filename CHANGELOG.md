@@ -8,5 +8,8 @@ First release; becomes 1.0.0 when `v1.0.0` is tagged.
 - Install `dnf-plugins-core` / `dnf5-plugins` so `dnf needs-restarting` works, and report them as findings when missing (a missing plugin used to read as "no reboot required").
 - Validate `linux_hardening_updates_reboot_time` as HH:MM when automatic reboot is on.
 - Platform variables moved to `vars/RedHat.yml` and `vars/Fedora.yml`; internal variables use the `__linux_hardening_updates_` prefix; sub-task names carry the file prefix (`name[prefix]` enabled).
+- Audit checks are written as data (one `ok` + `finding` per check) instead of Jinja loops; findings are a native list.
+- `apply_now` on the RedHat family uses `ansible.builtin.dnf` (`security: true`, `update_only: true`) instead of `dnf upgrade --security`.
+- Removed `linux_hardening_updates_dropin_name`; the apt drop-in is always `/etc/apt/apt.conf.d/52linux-hardening-updates`. A value set for it is now ignored.
 - gitleaks pre-commit hook, also run in CI: the lint job now runs `pre-commit run --all-files`; `community.general >= 9.0.0`.
 - Debian family installs with `ansible.builtin.apt`; RedHat drops the undocumented `update_cache` passthrough of `ansible.builtin.package`.

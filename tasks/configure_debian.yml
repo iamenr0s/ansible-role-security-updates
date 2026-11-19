@@ -9,7 +9,7 @@
 - name: configure_debian | Write the unattended-upgrades settings
   ansible.builtin.template:
     src: apt_updates.conf.j2
-    dest: "/etc/apt/apt.conf.d/{{ linux_hardening_updates_dropin_name }}"
+    dest: "{{ __linux_hardening_updates_dropin }}"
     owner: root
     group: root
     mode: "0644"

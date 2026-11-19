@@ -12,35 +12,47 @@
   failed_when: false
   check_mode: true
 
-# The last non-empty assignment of each option wins, as in dnf.
-- name: audit_redhat | Build findings
+# Each check says whether the host is ok, and what to report when it is not.
+- name: audit_redhat | Compare with desired state
   ansible.builtin.set_fact:
-    __linux_hardening_updates_found: >-
-      {%- set out = [] -%}
-      {%- set conf = __linux_hardening_updates_conf -%}
-      {%- set c = (conf.content | b64decode) if conf.content is defined else '' -%}
-      {%- set ut = c | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)') | reject('equalto', '') | list -%}
-      {%- set au = c | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)') | reject('equalto', '') | list -%}
-      {%- set have_type = ut | last | default('default') -%}
-      {%- set want_type = 'security' if linux_hardening_updates_security_only | bool else 'default' -%}
-      {%- set have_apply = (au | last | default('no')) | lower in ['yes', 'true', '1', 'on'] -%}
-      {%- set want_apply = linux_hardening_updates_apply | bool -%}
-      {%- set status = __linux_hardening_updates_timer.status | default({}) -%}
-      {%- set unit_state = status.UnitFileState | default('unknown') -%}
-      {%- set active_state = status.ActiveState | default('unknown') -%}
-      {%- for pkg in __linux_hardening_updates_rpm_pkgs if pkg not in ansible_facts['packages'] -%}
-      {%- set _ = out.append({'key': pkg, 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
-      {%- endfor -%}
-      {%- if have_type | lower != want_type -%}
-      {%- set _ = out.append({'key': 'dnf automatic upgrade_type', 'expected': want_type,
-                              'actual': ut | last | default('default (unset)'), 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if have_apply != want_apply -%}
-      {%- set _ = out.append({'key': 'dnf automatic apply_updates', 'expected': 'yes' if want_apply else 'no',
-                              'actual': 'yes' if have_apply else 'no', 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if unit_state != 'enabled' or active_state != 'active' -%}
-      {%- set _ = out.append({'key': __linux_hardening_updates_rpm_timer, 'expected': 'enabled and active',
-                              'actual': unit_state ~ ' / ' ~ active_state, 'fixable': true}) -%}
-      {%- endif -%}
-      {{ out | to_json }}
+    linux_hardening_updates_findings: >-
+      {{ __linux_hardening_updates_checks | rejectattr('ok') | map(attribute='finding') | list
+         + __linux_hardening_updates_missing_pkgs }}
+  vars:
+    __linux_hardening_updates_text: >-
+      {{ __linux_hardening_updates_conf.content | default('') | b64decode }}
+    # dnf uses the last assignment of an option.
+    __linux_hardening_updates_type: >-
+      {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)')
+         | last | default('default') | lower }}
+    __linux_hardening_updates_type_wanted: >-
+      {{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}
+    __linux_hardening_updates_applies: >-
+      {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)')
+         | last | default('no') | lower in ['yes', 'true', '1', 'on'] }}
+    __linux_hardening_updates_timer_state: >-
+      {{ __linux_hardening_updates_timer.status.UnitFileState | default('unknown') }}
+      / {{ __linux_hardening_updates_timer.status.ActiveState | default('unknown') }}
+    __linux_hardening_updates_missing_pkgs: >-
+      {{ __linux_hardening_updates_rpm_pkgs | reject('in', ansible_facts['packages'])
+         | map('community.general.dict_kv', 'key')
+         | map('combine', {'expected': 'installed', 'actual': 'missing', 'fixable': true}) | list }}
+    __linux_hardening_updates_checks:
+      - ok: "{{ __linux_hardening_updates_type == __linux_hardening_updates_type_wanted }}"
+        finding:
+          key: dnf automatic upgrade_type
+          expected: "{{ __linux_hardening_updates_type_wanted }}"
+          actual: "{{ __linux_hardening_updates_type }}"
+          fixable: true
+      - ok: "{{ __linux_hardening_updates_applies == linux_hardening_updates_apply | bool }}"
+        finding:
+          key: dnf automatic apply_updates
+          expected: "{{ 'yes' if linux_hardening_updates_apply | bool else 'no' }}"
+          actual: "{{ 'yes' if __linux_hardening_updates_applies else 'no' }}"
+          fixable: true
+      - ok: "{{ __linux_hardening_updates_timer_state == 'enabled / active' }}"
+        finding:
+          key: "{{ __linux_hardening_updates_rpm_timer }}"
+          expected: enabled / active
+          actual: "{{ __linux_hardening_updates_timer_state }}"
+          fixable: true

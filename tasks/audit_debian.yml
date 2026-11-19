@@ -13,43 +13,63 @@
   failed_when: false
   check_mode: true
 
-- name: audit_debian | Build findings
+# Each check says whether the host is ok, and what to report when it is not.
+- name: audit_debian | Compare with desired state
   ansible.builtin.set_fact:
-    __linux_hardening_updates_found: >-
-      {%- set out = [] -%}
-      {%- set c = __linux_hardening_updates_apt_cfg.stdout -%}
-      {%- set lists = c | regex_findall('(?m)^APT::Periodic::Update-Package-Lists "(\d+)"') | list + ['0'] -%}
-      {%- set uu = c | regex_findall('(?m)^APT::Periodic::Unattended-Upgrade "(\d+)"') | list + ['0'] -%}
-      {%- set rb = c | regex_findall('(?m)^Unattended-Upgrade::Automatic-Reboot "(\w+)"') | list + ['false'] -%}
-      {%- set origins = c | regex_findall('(?m)^Unattended-Upgrade::Allowed-Origins:: "(.*)";') -%}
-      {%- set want_uu = '1' if linux_hardening_updates_apply | bool else '0' -%}
-      {%- set want_rb = 'true' if linux_hardening_updates_automatic_reboot | bool else 'false' -%}
-      {%- if 'unattended-upgrades' not in ansible_facts['packages'] -%}
-      {%- set _ = out.append({'key': 'unattended-upgrades', 'expected': 'installed', 'actual': 'missing',
-                              'fixable': true}) -%}
-      {%- endif -%}
-      {%- if lists | first != '1' -%}
-      {%- set _ = out.append({'key': 'APT::Periodic::Update-Package-Lists', 'expected': '1',
-                              'actual': lists | first, 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if uu | first != want_uu -%}
-      {%- set _ = out.append({'key': 'APT::Periodic::Unattended-Upgrade', 'expected': want_uu,
-                              'actual': uu | first, 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if (rb | first) | lower != want_rb -%}
-      {%- set _ = out.append({'key': 'Unattended-Upgrade::Automatic-Reboot', 'expected': want_rb,
-                              'actual': rb | first, 'fixable': true}) -%}
-      {%- endif -%}
-      {%- for t in __linux_hardening_updates_timers.results -%}
-      {%- set unit_state = t.status.UnitFileState | default('unknown') -%}
-      {%- if unit_state != 'enabled' -%}
-      {%- set _ = out.append({'key': t.item, 'expected': 'enabled', 'actual': unit_state, 'fixable': true}) -%}
-      {%- endif -%}
-      {%- endfor -%}
-      {%- if linux_hardening_updates_security_only | bool -%}
-      {%- for o in origins if 'security' not in o | lower -%}
-      {%- set _ = out.append({'key': 'allowed origin: ' ~ o, 'expected': 'security origins only',
-                              'actual': 'non-security origin', 'fixable': false}) -%}
-      {%- endfor -%}
-      {%- endif -%}
-      {{ out | to_json }}
+    linux_hardening_updates_findings: >-
+      {{ __linux_hardening_updates_checks | rejectattr('ok') | map(attribute='finding') | list
+         + __linux_hardening_updates_timer_findings + __linux_hardening_updates_origin_findings }}
+  vars:
+    __linux_hardening_updates_cfg: "{{ __linux_hardening_updates_apt_cfg.stdout }}"
+    __linux_hardening_updates_lists: >-
+      {{ __linux_hardening_updates_cfg | regex_findall('(?m)^APT::Periodic::Update-Package-Lists "(\d+)"')
+         | first | default('0') }}
+    __linux_hardening_updates_upgrade: >-
+      {{ __linux_hardening_updates_cfg | regex_findall('(?m)^APT::Periodic::Unattended-Upgrade "(\d+)"')
+         | first | default('0') }}
+    __linux_hardening_updates_upgrade_wanted: "{{ '1' if linux_hardening_updates_apply | bool else '0' }}"
+    __linux_hardening_updates_reboot: >-
+      {{ __linux_hardening_updates_cfg | regex_findall('(?m)^Unattended-Upgrade::Automatic-Reboot "(\w+)"')
+         | first | default('false') | lower }}
+    __linux_hardening_updates_reboot_wanted: >-
+      {{ 'true' if linux_hardening_updates_automatic_reboot | bool else 'false' }}
+    # {timer: UnitFileState}, as a list of {key, actual}
+    __linux_hardening_updates_timer_states: >-
+      {{ dict(__linux_hardening_updates_deb_timers
+              | zip(__linux_hardening_updates_timers.results
+                    | map(attribute='status.UnitFileState', default='unknown')))
+         | dict2items(value_name='actual') }}
+    __linux_hardening_updates_timer_findings: >-
+      {{ __linux_hardening_updates_timer_states | rejectattr('actual', 'eq', 'enabled')
+         | map('combine', {'expected': 'enabled', 'fixable': true}) | list }}
+    # The distro's allowed origins are reported, not changed.
+    __linux_hardening_updates_origin_findings: >-
+      {{ (__linux_hardening_updates_cfg
+          | regex_findall('(?m)^Unattended-Upgrade::Allowed-Origins:: "(.*)";')
+          | reject('search', '(?i)security')
+          | map('regex_replace', '^', 'allowed origin: ')
+          | map('community.general.dict_kv', 'key')
+          | map('combine', {'expected': 'security origins only', 'actual': 'non-security origin',
+                            'fixable': false}) | list)
+         if linux_hardening_updates_security_only | bool else [] }}
+    __linux_hardening_updates_checks:
+      - ok: "{{ 'unattended-upgrades' in ansible_facts['packages'] }}"
+        finding: {key: unattended-upgrades, expected: installed, actual: missing, fixable: true}
+      - ok: "{{ __linux_hardening_updates_lists | string == '1' }}"
+        finding:
+          key: APT::Periodic::Update-Package-Lists
+          expected: "1"
+          actual: "{{ __linux_hardening_updates_lists }}"
+          fixable: true
+      - ok: "{{ __linux_hardening_updates_upgrade | string == __linux_hardening_updates_upgrade_wanted | string }}"
+        finding:
+          key: APT::Periodic::Unattended-Upgrade
+          expected: "{{ __linux_hardening_updates_upgrade_wanted }}"
+          actual: "{{ __linux_hardening_updates_upgrade }}"
+          fixable: true
+      - ok: "{{ __linux_hardening_updates_reboot == __linux_hardening_updates_reboot_wanted }}"
+        finding:
+          key: Unattended-Upgrade::Automatic-Reboot
+          expected: "{{ __linux_hardening_updates_reboot_wanted }}"
+          actual: "{{ __linux_hardening_updates_reboot }}"
+          fixable: true

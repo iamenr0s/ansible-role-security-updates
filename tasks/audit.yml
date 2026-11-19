@@ -29,12 +29,6 @@
 - name: audit | Compare with desired state
   ansible.builtin.include_tasks: "audit_{{ __linux_hardening_updates_family }}.yml"
 
-- name: audit | Record findings
-  ansible.builtin.set_fact:
-    linux_hardening_updates_findings: >-
-      {{ __linux_hardening_updates_found | from_json
-         if __linux_hardening_updates_found is string else __linux_hardening_updates_found }}
-
 - name: audit | Report security_updates result
   ansible.builtin.debug:
     msg: >-
@@ -49,7 +43,7 @@
     __linux_hardening_updates_fatal: "{{ __linux_hardening_updates_audit_fatal | default(false) }}"
     __linux_hardening_updates_blocking: >-
       {{ linux_hardening_updates_findings | selectattr('fixable') | list
-         if __linux_hardening_updates_fatal | bool
-         else linux_hardening_updates_findings if linux_hardening_fail_on_error | bool
-         else [] }}
-  when: __linux_hardening_updates_blocking | length > 0
+         if __linux_hardening_updates_fatal | bool else linux_hardening_updates_findings }}
+  when:
+    - __linux_hardening_updates_fatal | bool or linux_hardening_fail_on_error | bool
+    - __linux_hardening_updates_blocking | length > 0

@@ -18,4 +18,3 @@ linux_hardening_updates_reboot_time: "03:00"
 # Run a security-only update once, now (remediate mode only).
 linux_hardening_updates_apply_now: false
 linux_hardening_updates_max_filesystem_usage: 90   # percent; checked on /, /var, /boot before apply_now
-linux_hardening_updates_dropin_name: 52linux-hardening-updates   # apt.conf.d file

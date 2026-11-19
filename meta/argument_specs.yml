@@ -59,7 +59,3 @@ argument_specs:
         type: int
         default: 90
         description: Refuse apply_now when /, /var or /boot is fuller than this percent.
-      linux_hardening_updates_dropin_name:
-        type: str
-        default: 52linux-hardening-updates
-        description: apt.conf.d file name.
