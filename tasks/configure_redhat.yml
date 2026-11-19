@@ -3,7 +3,6 @@
   ansible.builtin.package:
     name: "{{ __linux_hardening_updates_rpm_pkgs }}"
     state: present
-    update_cache: true
   register: __linux_hardening_updates_install
 
 - name: configure_redhat | Configure dnf automatic

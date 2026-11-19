@@ -1,6 +1,6 @@
 ---
 - name: configure_debian | Install unattended-upgrades
-  ansible.builtin.package:
+  ansible.builtin.apt:
     name: unattended-upgrades
     state: present
     update_cache: true

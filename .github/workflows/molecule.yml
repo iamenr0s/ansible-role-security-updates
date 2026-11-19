@@ -20,9 +20,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - run: pip install ansible ansible-lint yamllint
-      - run: yamllint .
-      - run: ansible-lint
+      - run: pip install ansible ansible-lint yamllint pre-commit
+      # Same hooks as local pre-commit: yamllint --strict, ansible-lint, gitleaks.
+      - run: pre-commit run --all-files --show-diff-on-failure
 
   molecule:
     name: ${{ matrix.distro }}
