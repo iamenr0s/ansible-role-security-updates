@@ -29,6 +29,8 @@
     __linux_hardening_updates_reboot: >-
       {{ __linux_hardening_updates_cfg | regex_findall('(?m)^Unattended-Upgrade::Automatic-Reboot "(\w+)"')
          | first | default('false') | lower }}
+    __linux_hardening_updates_missing: >-
+      {{ __linux_hardening_updates_deb_pkgs | reject('in', ansible_facts['packages']) | list }}
     __linux_hardening_updates_timer_states: >-
       {{ __linux_hardening_updates_timers.results | map(attribute='status.UnitFileState', default='unknown') | list }}
     # The distro's allowed origins are reported, not changed.
@@ -36,11 +38,11 @@
       {{ __linux_hardening_updates_cfg | regex_findall('(?m)^Unattended-Upgrade::Allowed-Origins:: "(.*)";')
          | reject('search', '(?i)security') | list }}
     __linux_hardening_updates_checks:
-      - ok: "{{ 'unattended-upgrades' in ansible_facts['packages'] }}"
+      - ok: "{{ __linux_hardening_updates_missing | length == 0 }}"
         finding:
           key: packages
-          expected: "installed: unattended-upgrades"
-          actual: "missing: unattended-upgrades"
+          expected: "installed: {{ __linux_hardening_updates_deb_pkgs | join(', ') }}"
+          actual: "missing: {{ __linux_hardening_updates_missing | join(', ') }}"
           fixable: true
       - ok: "{{ __linux_hardening_updates_lists | int == 1 }}"
         finding:

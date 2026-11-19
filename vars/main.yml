@@ -1,10 +1,12 @@
 ---
 __linux_hardening_updates_family: "{{ 'redhat' if ansible_facts['os_family'] == 'RedHat' else 'debian' }}"
+__linux_hardening_updates_deb_pkgs: [unattended-upgrades]
 __linux_hardening_updates_deb_timers: [apt-daily.timer, apt-daily-upgrade.timer]
 # Sorts after the distro's 50unattended-upgrades, so these settings win.
 __linux_hardening_updates_dropin: /etc/apt/apt.conf.d/52linux-hardening-updates
 # Desired settings, shared by configure, audit and the template so they cannot disagree.
-__linux_hardening_updates_upgrade_type: "{{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}"
+__linux_hardening_updates_upgrade_type: >-
+  {{ 'security' if linux_hardening_updates_security_only | bool else 'default' }}
 __linux_hardening_updates_apply_updates: "{{ 'yes' if linux_hardening_updates_apply | bool else 'no' }}"
 __linux_hardening_updates_apt_upgrade: "{{ '1' if linux_hardening_updates_apply | bool else '0' }}"
 __linux_hardening_updates_apt_reboot: >-

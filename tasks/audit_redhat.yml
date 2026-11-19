@@ -24,9 +24,11 @@
     __linux_hardening_updates_type: >-
       {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*upgrade_type\s*=\s*(\S+)')
          | last | default('default') | lower }}
+    __linux_hardening_updates_apply_raw: >-
+      {{ __linux_hardening_updates_text | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)')
+         | last | default('no') | lower }}
     __linux_hardening_updates_applies: >-
-      {{ 'yes' if __linux_hardening_updates_text | regex_findall('(?m)^\s*apply_updates\s*=\s*(\S+)')
-         | last | default('no') | lower in ['yes', 'true', '1', 'on'] else 'no' }}
+      {{ 'yes' if __linux_hardening_updates_apply_raw in ['yes', 'true', '1', 'on'] else 'no' }}
     __linux_hardening_updates_timer_state: >-
       {{ __linux_hardening_updates_timer.status.UnitFileState | default('unknown') }}
       / {{ __linux_hardening_updates_timer.status.ActiveState | default('unknown') }}
