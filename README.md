@@ -52,7 +52,7 @@ Variables use the collection-wide `linux_hardening_*` prefix (shared with siblin
 ```
 
 ## Verification
-Molecule `default` (remediate without gathered facts, idempotence, re-audit, settings read back), `check` (`--check` on an unconfigured host installs nothing), `audit`, `refuse`: AlmaLinux 9, Debian 13, Ubuntu 24.04, Fedora 44. `apply` (real security-only update): AlmaLinux 9, Debian 13. CI matrix: AlmaLinux 8–10, Rocky 8–10, Fedora 42–44, Debian 12–13, Ubuntu 22.04/24.04.
+Molecule `default` (remediate without gathered facts, idempotence, re-audit, settings read back), `check` (`--check` on an unconfigured host installs nothing), `audit`, `refuse`: AlmaLinux 9, Debian 13, Ubuntu 24.04, Fedora 44. `apply` (real security-only update): AlmaLinux 9, Debian 13, Fedora 44. CI matrix: AlmaLinux 8–10, Rocky 8–10, Fedora 42–44, Debian 12–13, Ubuntu 22.04/24.04.
 
 ## Rollback
 RedHat: set `apply_updates = no` or disable the timer. Debian family: delete the drop-in and disable `apt-daily-upgrade.timer`. Installed updates are not rolled back.
