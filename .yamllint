@@ -1,6 +1,8 @@
 ---
 # Based on ansible-lint config
 extends: default
+ignore: |
+  .ansible/
 
 rules:
   braces:
@@ -26,7 +28,8 @@ rules:
     level: error
   indentation: disable
   key-duplicates: enable
-  line-length: disable
+  line-length:
+    max: 120
   new-line-at-end-of-file: disable
   new-lines:
     type: unix
@@ -34,4 +37,6 @@ rules:
     forbid-implicit-octal: true
     forbid-explicit-octal: true
   trailing-spaces: disable
-  truthy: disable
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
