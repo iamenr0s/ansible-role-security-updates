@@ -31,8 +31,10 @@
          | first | default('false') | lower }}
     __linux_hardening_updates_missing: >-
       {{ __linux_hardening_updates_deb_pkgs | reject('in', ansible_facts['packages']) | list }}
-    __linux_hardening_updates_timer_states: >-
+    __linux_hardening_updates_timers_enabled: >-
       {{ __linux_hardening_updates_timers.results | map(attribute='status.UnitFileState', default='unknown') | list }}
+    __linux_hardening_updates_timers_active: >-
+      {{ __linux_hardening_updates_timers.results | map(attribute='status.ActiveState', default='unknown') | list }}
     # The distro's allowed origins are reported, not changed. Ubuntu uses Allowed-Origins, Debian Origins-Pattern.
     __linux_hardening_updates_open_origins: >-
       {{ __linux_hardening_updates_cfg
@@ -63,13 +65,16 @@
           expected: "{{ __linux_hardening_updates_apt_reboot }}"
           actual: "{{ __linux_hardening_updates_reboot }}"
           fixable: true
-      - ok: "{{ __linux_hardening_updates_timer_states | reject('eq', 'enabled') | list | length == 0 }}"
+      - ok: >-
+          {{ __linux_hardening_updates_timers_enabled | unique == ['enabled']
+             and __linux_hardening_updates_timers_active | unique == ['active'] }}
         finding:
           key: apt timers
-          expected: enabled
+          expected: enabled / active
           actual: >-
-            {{ __linux_hardening_updates_deb_timers | zip(__linux_hardening_updates_timer_states)
-               | map('join', '=') | join(', ') }}
+            {{ __linux_hardening_updates_deb_timers
+               | zip(__linux_hardening_updates_timers_enabled, __linux_hardening_updates_timers_active)
+               | map('join', ' ') | join(', ') }}
           fixable: true
       - ok: >-
           {{ not linux_hardening_updates_security_only | bool
